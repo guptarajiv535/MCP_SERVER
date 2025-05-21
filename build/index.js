@@ -2,8 +2,13 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import fetch from "node-fetch";
+import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-dotenv.config();
+import path from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Load .env from root, even after build
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 // GitHub API base
 const GITHUB_API = "https://api.github.com";
 console.log("GITHUB_TOKEN:", process.env.GITHUB_TOKEN);
@@ -51,7 +56,7 @@ server.tool("create-github-issue", "Create a GitHub issue in a specified reposit
     const url = `${GITHUB_API}/repos/${username}/${repo}/issues`;
     const token = process.env.GITHUB_TOKEN?.trim();
     // TODO: uncomment this to see the token for debugging
-    //console.error("GITHUB_TOKEN:", token); 
+    console.error("GITHUB_TOKEN:", token);
     const headers = {
         "Authorization": `Bearer ${token}`,
         "Accept": "application/vnd.github+json",
@@ -61,7 +66,7 @@ server.tool("create-github-issue", "Create a GitHub issue in a specified reposit
     };
     const payload = { title, body, labels: ["bug"] };
     // TODO: uncomment this to see the request for debugging
-    //console.error("DEBUG REQUEST:", { url, headers, payload });
+    console.error("DEBUG REQUEST:", { url, headers, payload });
     try {
         const res = await fetch(url, {
             method: "POST",
@@ -83,10 +88,12 @@ server.tool("create-github-issue", "Create a GitHub issue in a specified reposit
         };
     }
 });
-server.tool("list-open-issues", "List open issues for a GitHub repository", {
+server.tool("list-issues", "List issues from a GitHub repository", {
     repo: z.string().min(1).describe("Repository name (e.g., 'guptarajiv535/sample-repo')"),
-}, async ({ repo }) => {
-    const url = `${GITHUB_API}/repos/${repo}/issues?state=open`;
+    username: z.string().min(1).describe("GitHub username or organization (e.g., 'guptarajiv535')"),
+    state: z.enum(["open", "closed", "all"]).default("open").describe("State of issues to list (open, closed, all)"),
+}, async ({ repo, username, state }) => {
+    const url = `${GITHUB_API}/repos/${username}/${repo}/issues?state=${state}`;
     try {
         const res = await fetch(url, {
             headers: {

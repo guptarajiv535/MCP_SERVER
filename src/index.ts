@@ -2,10 +2,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import fetch from "node-fetch";
-
+import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import path from "path";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env from root, even after build
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 // GitHub API base
 const GITHUB_API = "https://api.github.com";
@@ -68,7 +73,7 @@ server.tool(
     const url = `${GITHUB_API}/repos/${username}/${repo}/issues`;
     const token = process.env.GITHUB_TOKEN?.trim();
     // TODO: uncomment this to see the token for debugging
-    //console.error("GITHUB_TOKEN:", token); 
+    console.error("GITHUB_TOKEN:", token); 
 
     const headers = {
       "Authorization": `Bearer ${token}`,
@@ -80,7 +85,7 @@ server.tool(
     const payload = { title, body, labels: ["bug"] };
 
     // TODO: uncomment this to see the request for debugging
-    //console.error("DEBUG REQUEST:", { url, headers, payload });
+    console.error("DEBUG REQUEST:", { url, headers, payload });
 
     try {
       const res = await fetch(url, {
@@ -109,13 +114,15 @@ server.tool(
 );
 
 server.tool(
-  "list-open-issues",
-  "List open issues for a GitHub repository",
+  "list-issues",
+  "List issues from a GitHub repository",
   {
     repo: z.string().min(1).describe("Repository name (e.g., 'guptarajiv535/sample-repo')"),
+    username: z.string().min(1).describe("GitHub username or organization (e.g., 'guptarajiv535')"),
+    state: z.enum(["open", "closed", "all"]).default("open").describe("State of issues to list (open, closed, all)"),
   },
-  async ({ repo }) => {
-    const url = `${GITHUB_API}/repos/${repo}/issues?state=open`;
+  async ({ repo, username, state }) => {
+    const url = `${GITHUB_API}/repos/${username}/${repo}/issues?state=${state}`;
     try {
       const res = await fetch(url, {
         headers: {
